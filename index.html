@@ -1,0 +1,263 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>2-Month Meal Tracker</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0d0d0d;
+      color: #ccffcc;
+      padding: 20px;
+      margin: 0;
+    }
+    h1 {
+      text-align: center;
+      color: #00e676;
+      font-size: 26px;
+      font-weight: 900;
+      margin-bottom: 20px;
+    }
+    .day-card {
+      background: #1b1b1b;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      padding: 15px;
+      box-shadow: 0 0 5px rgba(0,255,0,0.1);
+    }
+    .day-header {
+      font-weight: 900;
+      font-size: 20px;
+      margin-bottom: 10px;
+      color: #a5d6a7;
+    }
+    .meal-section {
+      margin-bottom: 15px;
+    }
+    .meal-title {
+      font-weight: 900;
+      margin-bottom: 5px;
+      color: #81c784;
+      font-size: 18px;
+    }
+    .item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .item span {
+      font-weight: 900;
+      flex: 1;
+      font-size: 16px;
+    }
+    .checkbox {
+      width: 22px;
+      height: 22px;
+      border: 2px solid #00c853;
+      cursor: pointer;
+      position: relative;
+    }
+    .checkbox.checked::after {
+      content: '✔';
+      position: absolute;
+      top: -2px;
+      left: 3px;
+      font-size: 18px;
+      color: #00e676;
+      font-weight: bold;
+    }
+    .checkbox.disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+    .complete-btn {
+      background: #00c853;
+      color: black;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 900;
+      margin-top: 10px;
+    }
+    .complete-btn:disabled {
+      background: #444;
+      color: #888;
+      cursor: not-allowed;
+    }
+    .popup-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      width: 100vw;
+      background-color: rgba(0, 0, 0, 0.6);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    .popup-box {
+      background-color: #121212;
+      border: 2px solid #00c853;
+      border-radius: 10px;
+      padding: 20px;
+      max-width: 300px;
+      text-align: center;
+      color: #ccffcc;
+      font-weight: 900;
+      box-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
+    }
+    .popup-box button {
+      margin-top: 15px;
+      background: #00c853;
+      border: none;
+      padding: 8px 16px;
+      font-size: 14px;
+      border-radius: 5px;
+      cursor: pointer;
+      color: #000;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body><h1>2-Month Meal Tracker</h1>
+<div id="tracker"></div>
+<div id="popup-container"></div><script>
+  localStorage.removeItem("mealCheckmarks");
+  localStorage.removeItem("mealCompleted");
+
+  const tracker = document.getElementById("tracker");
+  const popupContainer = document.getElementById("popup-container");
+  const mealTimes = ["Breakfast", "Lunch", "Afternoon Snack", "Dinner"];
+  const saved = {};
+  const completed = {};
+
+  function formatDate(date) {
+    return date.toISOString().split("T")[0];
+  }
+
+  function getDayName(date) {
+    return date.toLocaleDateString('en-US', { weekday: 'long' });
+  }
+
+  function getMeals(date, mealTime) {
+    const day = date.getDay();
+    if (mealTime === "Breakfast") {
+      return (day === 5) ? ["খিচুড়ি"] : ["আটার রুটি", "সবজি"];
+    } else if (mealTime === "Lunch") {
+      return ["ভাত", "সবজি", "মাছ", "মাংস"];
+    } else if (mealTime === "Afternoon Snack") {
+      return ["চা (চিনি ছাড়া)", "বাদাম", "ফল"];
+    } else if (mealTime === "Dinner") {
+      return ["রুটি", "শাক", "সেদ্ধ ডিম"];
+    }
+    return [];
+  }
+
+  function saveAll() {
+    localStorage.setItem("mealCheckmarks", JSON.stringify(saved));
+    localStorage.setItem("mealCompleted", JSON.stringify(completed));
+  }
+
+  function createCheckbox(id, disabled) {
+    const box = document.createElement("div");
+    box.className = "checkbox";
+    box.dataset.id = id;
+    if (saved[id]) box.classList.add("checked");
+    if (disabled) box.classList.add("disabled");
+    box.onclick = () => {
+      const dayMealKey = id.split("-").slice(0,2).join("-");
+      if (completed[dayMealKey]) return; // block after complete
+      if (saved[id]) {
+        delete saved[id];
+        box.classList.remove("checked");
+      } else {
+        saved[id] = true;
+        box.classList.add("checked");
+      }
+      saveAll();
+    };
+    return box;
+  }
+
+  function showPopup(mealTime) {
+    const overlay = document.createElement("div");
+    overlay.className = "popup-overlay";
+    const popup = document.createElement("div");
+    popup.className = "popup-box";
+    const msg = document.createElement("p");
+    msg.innerHTML = `You have successfully completed your <strong>${mealTime}</strong>.`;
+    const okBtn = document.createElement("button");
+    okBtn.textContent = "OK";
+    okBtn.onclick = () => overlay.remove();
+    popup.appendChild(msg);
+    popup.appendChild(okBtn);
+    overlay.appendChild(popup);
+    popupContainer.appendChild(overlay);
+  }
+
+  function completeAll(dayStr, meal, items, btn, section) {
+    const manuallyChecked = items.filter(item => saved[`${dayStr}-${meal}-${item}`]);
+    if (manuallyChecked.length > 0) {
+      completed[`${dayStr}-${meal}`] = true;
+      const allCheckboxes = section.querySelectorAll(".checkbox");
+      allCheckboxes.forEach(box => box.classList.add("disabled"));
+      btn.disabled = true;
+      showPopup(meal);
+      saveAll();
+    } else {
+      showPopup(`Please check at least one item before completing your ${meal}`);
+    }
+  }
+
+  const startDate = new Date();
+  startDate.setDate(5);
+
+  for (let i = 0; i < 60; i++) {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
+    const dateStr = formatDate(date);
+    const dayName = getDayName(date);
+
+    const card = document.createElement("div");
+    card.className = "day-card";
+    const header = document.createElement("div");
+    header.className = "day-header";
+    header.textContent = `${dateStr} (${dayName})`;
+    card.appendChild(header);
+
+    mealTimes.forEach(meal => {
+      const section = document.createElement("div");
+      section.className = "meal-section";
+      const title = document.createElement("div");
+      title.className = "meal-title";
+      title.textContent = meal;
+      section.appendChild(title);
+      const items = getMeals(date, meal);
+      const mealCompleted = completed[`${dateStr}-${meal}`];
+      items.forEach(item => {
+        const id = `${dateStr}-${meal}-${item}`;
+        const row = document.createElement("div");
+        row.className = "item";
+        const label = document.createElement("span");
+        label.textContent = item;
+        const box = createCheckbox(id, mealCompleted);
+        row.appendChild(label);
+        row.appendChild(box);
+        section.appendChild(row);
+      });
+      const btn = document.createElement("button");
+      btn.className = "complete-btn";
+      btn.textContent = "Complete";
+      btn.disabled = mealCompleted;
+      btn.onclick = () => completeAll(dateStr, meal, items, btn, section);
+      section.appendChild(btn);
+      card.appendChild(section);
+    });
+    tracker.appendChild(card);
+  }
+</script></body>
+  </html>
